@@ -52,6 +52,18 @@ function createWindow(): void {
 }
 
 ipcMain.handle("get-history", () => history);
+ipcMain.handle("copy-entry", (_event, id: string) => {
+    const index = history.findIndex(e => e.id === id);
+    if (index === -1) return;
+    const [entry] = history.splice(index, 1);
+    entry.timestamp = Date.now();
+    history.unshift(entry);
+    lastSeen = entry.content;
+    clipboard.writeText(entry.content);
+    if (mainWindow) {
+        mainWindow.webContents.send("history-updated", history);
+    }
+});
 
 app.whenReady().then(() => {
     createWindow();

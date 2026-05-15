@@ -8,6 +8,7 @@ interface HistoryEntry {
 interface Window {
     api: {
         getHistory: () => Promise<HistoryEntry[]>;
+        copyEntry: (id: string) => Promise<void>;
         onHistoryUpdated: (callback: (History: HistoryEntry[]) => void) =>
             void;
     };
@@ -25,6 +26,10 @@ function render(history: HistoryEntry[]): void {
             ? entry.content.slice(0, 60) + "..."
             : entry.content;
         li.textContent = preview;
+        li.style.cursor = "pointer";
+        li.addEventListener("click", () => {
+            window.api.copyEntry(entry.id);
+        });
         list.appendChild(li);
     }
 }
@@ -34,7 +39,7 @@ async function main() {
     render(history);
 
     window.api.onHistoryUpdated((updated) => {
-        console.log("history-updated", updated) // delete later
+        console.log("history-updated", updated); // delete later
         render(updated);
     });
 }
