@@ -1,4 +1,4 @@
-import { app, BrowserWindow, clipboard, ipcMain, Menu, Tray, nativeImage } from "electron";
+import { app, BrowserWindow, clipboard, ipcMain, Menu, Tray, nativeImage, globalShortcut } from "electron";
 import path from "path";
 import fs from "fs";
 
@@ -16,6 +16,8 @@ const history: HistoryEntry[] = [];
 let lastSeen = "";
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
+let isQuitting = false;
+let pollTimer: NodeJS.Timeout | null = null;
 
 function normalizeEntry(value: unknown): HistoryEntry | null {
     if (typeof value !== "object" || value === null) return null;
@@ -105,6 +107,12 @@ function createWindow(): void {
         },
     });
     mainWindow.loadFile(path.join(__dirname, "renderer", "index.html"));
+    mainWindow.on("close", (event) => {
+        if (!isQuitting) {
+            event.preventDefault();
+            mainWindow?.hide();
+        }
+    });
 }
 
 function createTray(): void {
@@ -115,6 +123,7 @@ function createTray(): void {
 
     tray = new Tray(icon);
     tray.setToolTip("ynkd");
+    tray.on("click", toggleWindow);
 
     const menu = Menu.buildFromTemplate([
         { label: "Show / Hide (⌘⇧V)", click: toggleWindow },
@@ -132,6 +141,7 @@ function createTray(): void {
         { label: "Quit", click: () => app.quit() },
     ]);
     tray.setContextMenu(menu);
+    console.log("Tray created");
 }
 
 ipcMain.handle("get-history", () => history);
@@ -153,5 +163,17 @@ app.whenReady().then(() => {
     if (!lastSeen) lastSeen = clipboard.readText();
     createWindow();
     createTray();
-    setInterval(pollClipboard, POLL_INTERVAL_MS);
+    pollTimer = setInterval(pollClipboard, POLL_INTERVAL_MS);
+
+    const registered = globalShortcut.register("CommandOrControl+Shift+V", toggleWindow);
+    if (!registered) console.error("Failed to register global shortcut Command+Shift+V");
+});
+
+app.on("before-quit", () => {
+    isQuitting = true;
+});
+
+app.on("will-quit", () => {
+    if (pollTimer) clearInterval(pollTimer);
+    globalShortcut.unregisterAll();
 });
