@@ -45,7 +45,7 @@ function loadHistory(): void {
     try {
         if (!fs.existsSync(storageFile)) return;
         const raw = fs.readFileSync(storageFile, "utf8");
-        const parsed = JSON.parse(raw) as HistoryEntry[];
+        const parsed: unknown = JSON.parse(raw);
         history.push(...parseHistory(parsed));
         if (history.length > 0) lastSeen = history[0].content;
     } catch (err) {
@@ -57,7 +57,7 @@ function saveHistory(): void {
     try {
         fs.writeFileSync(storageFile, JSON.stringify(history, null, 2));
     } catch (err) {
-        console.error("failed to save history:", err);
+        console.error("Failed to save history:", err);
     }
 }
 
