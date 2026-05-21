@@ -11,11 +11,14 @@ interface Window {
         copyEntry: (id: string) => Promise<void>;
         deleteEntry: (id: string) => Promise<void>;
         togglePin: (id: string) => Promise<void>;
-        onHistoryUpdated: (callback: (History: HistoryEntry[]) => void) => void;
+        onHistoryUpdated: (callback: (history: HistoryEntry[]) => void) => void;
+        onWindowShown: (callback: () => void) => void;
     };
 }
 
 let latestHistory: HistoryEntry[] = [];
+let visibleEntries: HistoryEntry[] = [];
+let selectedIndex = 0;
 
 function render(): void {
     const list = document.getElementById("history");
@@ -29,14 +32,34 @@ function render(): void {
         ? latestHistory.filter(e => e.content.toLowerCase().includes(q))
         : latestHistory;
 
-    const ordered = [
+    visibleEntries = [
         ...matching.filter(e => e.pinned),
         ...matching.filter(e => !e.pinned),
     ];
 
-    for (const entry of ordered) {
-        const li = document.createElement("li");
+    const emptyEl = document.getElementById("empty-state");
+    const emptyMsg = emptyEl?.querySelector(".empty-msg");
 
+    if (visibleEntries.length === 0) {
+        list.classList.add("hidden");
+        emptyEl?.classList.remove("hidden");
+        const hasQuery = searchEl.value.trim().length > 0;
+        if (emptyMsg) {
+            emptyMsg.textContent = hasQuery ? "no matches" : "Copy stuff...";
+        }
+    } else {
+        list.classList.remove("hidden");
+        emptyEl?.classList.add("hidden");
+    }
+
+    if (selectedIndex >= visibleEntries.length) {
+        selectedIndex = Math.max(0, visibleEntries.length - 1);
+    }
+
+    for (let i = 0; i < visibleEntries.length; i++) {
+        const entry = visibleEntries[i]
+        const li = document.createElement("li");
+        if (i === selectedIndex) li.classList.add("selected");
         const text = document.createElement("span");
         text.className = "entry-text";
         text.textContent = entry.content.length > 60
@@ -52,6 +75,10 @@ function render(): void {
             window.api.togglePin(entry.id);
         });
 
+        const indexEl = document.createElement("span");
+        indexEl.className = "entry-index";
+        indexEl.textContent = String(i + 1).padStart(2, " ");
+
         const delBtn = document.createElement("button");
         delBtn.className = "delete-btn";
         delBtn.textContent = "×";
@@ -62,6 +89,7 @@ function render(): void {
         });
 
         li.appendChild(pinBtn);
+        li.appendChild(indexEl);
         li.appendChild(text);
         li.appendChild(delBtn);
         li.addEventListener("click", () => {
@@ -82,8 +110,47 @@ async function main() {
 
     const searchEl = document.getElementById("search") as HTMLInputElement;
     if (searchEl) {
-        searchEl.addEventListener("input", render);
+        searchEl.addEventListener("input", () => {
+            selectedIndex = 0;
+            render();
+        });
+        searchEl.focus();
     }
+
+    document.addEventListener("keydown", (e) => {
+        if (e.key === "ArrowDown") {
+            e.preventDefault();
+            if (selectedIndex < visibleEntries.length - 1) {
+                selectedIndex++;
+                render();
+            }
+        } else if (e.key === "ArrowUp") {
+            e.preventDefault();
+            if (selectedIndex > 0) {
+                selectedIndex--;
+                render();
+            }
+        } else if (e.key === "Enter") {
+            e.preventDefault();
+            const entry = visibleEntries[selectedIndex];
+            if (entry) {
+                window.api.copyEntry(entry.id);
+                selectedIndex = 0;
+            }
+        } else if (e.key === "Escape") {
+            const searchEl = document.getElementById("search") as HTMLInputElement;
+            if (searchEl && searchEl.value !== "") {
+                e.preventDefault();
+                searchEl.value = "";
+                selectedIndex = 0;
+                render();
+            }
+        }
+    });
+
+    window.api.onWindowShown(() => {
+        searchEl?.focus();
+    })
 }
 
 main();

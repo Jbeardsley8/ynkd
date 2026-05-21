@@ -20,4 +20,7 @@ contextBridge.exposeInMainWorld("api", {
         ipcRenderer.on("history-updated", (_event, history) =>
             callback(history));
     },
+    onWindowShown: (callback: () => void) => {
+        ipcRenderer.on("window-shown", () => callback());
+    },
 });
