@@ -1,0 +1,1 @@
+# ynkd is a macOS clipboard manager im building in Electron + TypeScript. Still building / under construction...🚧 🚧 🚧 🚧 🚧 🚧 🚧 🚧 
