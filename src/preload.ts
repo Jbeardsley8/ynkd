@@ -12,6 +12,10 @@ contextBridge.exposeInMainWorld("api", {
         ipcRenderer.invoke("get-history"),
     copyEntry: (id: string): Promise<void> =>
         ipcRenderer.invoke("copy-entry", id),
+    deleteEntry: (id: string): Promise<void> =>
+        ipcRenderer.invoke("delete-entry", id),
+    togglePin: (id: string): Promise<void> =>
+        ipcRenderer.invoke("toggle-pin", id),
     onHistoryUpdated: (callback: (history: HistoryEntry[]) => void) => {
         ipcRenderer.on("history-updated", (_event, history) =>
             callback(history));

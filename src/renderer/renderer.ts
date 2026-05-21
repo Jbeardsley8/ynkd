@@ -9,24 +9,61 @@ interface Window {
     api: {
         getHistory: () => Promise<HistoryEntry[]>;
         copyEntry: (id: string) => Promise<void>;
-        onHistoryUpdated: (callback: (History: HistoryEntry[]) => void) =>
-            void;
+        deleteEntry: (id: string) => Promise<void>;
+        togglePin: (id: string) => Promise<void>;
+        onHistoryUpdated: (callback: (History: HistoryEntry[]) => void) => void;
     };
 }
 
-function render(history: HistoryEntry[]): void {
+let latestHistory: HistoryEntry[] = [];
+
+function render(): void {
     const list = document.getElementById("history");
-    if (!list) return;
+    const searchEl = document.getElementById("search") as HTMLInputElement;
+    if (!list || !searchEl) return;
 
     list.innerHTML = "";
 
-    for (const entry of history) {
+    const q = searchEl.value.trim().toLowerCase();
+    const matching = q
+        ? latestHistory.filter(e => e.content.toLowerCase().includes(q))
+        : latestHistory;
+
+    const ordered = [
+        ...matching.filter(e => e.pinned),
+        ...matching.filter(e => !e.pinned),
+    ];
+
+    for (const entry of ordered) {
         const li = document.createElement("li");
-        const preview = entry.content.length > 60
+
+        const text = document.createElement("span");
+        text.className = "entry-text";
+        text.textContent = entry.content.length > 60
             ? entry.content.slice(0, 60) + "..."
             : entry.content;
-        li.textContent = preview;
-        li.style.cursor = "pointer";
+
+        const pinBtn = document.createElement("button");
+        pinBtn.className = entry.pinned ? "pin-btn pinned" : "pin-btn";
+        pinBtn.textContent = entry.pinned ? "★" : "☆";
+        pinBtn.title = entry.pinned ? "unpin" : "pin";
+        pinBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            window.api.togglePin(entry.id);
+        });
+
+        const delBtn = document.createElement("button");
+        delBtn.className = "delete-btn";
+        delBtn.textContent = "×";
+        delBtn.title = "delete";
+        delBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            window.api.deleteEntry(entry.id);
+        });
+
+        li.appendChild(pinBtn);
+        li.appendChild(text);
+        li.appendChild(delBtn);
         li.addEventListener("click", () => {
             window.api.copyEntry(entry.id);
         });
@@ -35,13 +72,18 @@ function render(history: HistoryEntry[]): void {
 }
 
 async function main() {
-    const history = await window.api.getHistory();
-    render(history);
+    latestHistory = await window.api.getHistory();
+    render();
 
     window.api.onHistoryUpdated((updated) => {
-        console.log("history-updated", updated); // delete later
-        render(updated);
+        latestHistory = updated;
+        render();
     });
+
+    const searchEl = document.getElementById("search") as HTMLInputElement;
+    if (searchEl) {
+        searchEl.addEventListener("input", render);
+    }
 }
 
 main();

@@ -87,7 +87,12 @@ function pollClipboard(): void {
             pinned: false
         });
         if (history.length > MAX_ENTRIES) {
-            history.pop();
+            for (let i = history.length - 1; i >= 0; i--) {
+                if (!history[i].pinned) {
+                    history.splice(i, 1);
+                    break;
+                }
+            }
         }
         const preview = current.length > 60 ? current.slice(0, 60) + "..." :
             current;
@@ -145,6 +150,7 @@ function createTray(): void {
 }
 
 ipcMain.handle("get-history", () => history);
+
 ipcMain.handle("copy-entry", (_event, id: string) => {
     const index = history.findIndex(e => e.id === id);
     if (index === -1) return;
@@ -155,6 +161,20 @@ ipcMain.handle("copy-entry", (_event, id: string) => {
     clipboard.writeText(entry.content);
     notifyHistoryChanged();
 });
+
+ipcMain.handle("delete-entry", (_event, id: string) => {
+    const index = history.findIndex(e => e.id === id);
+    if (index === -1) return;
+    history.splice(index, 1);
+    notifyHistoryChanged();
+});
+
+ipcMain.handle("toggle-pin", (_event, id: string) => {
+    const entry = history.find(e => e.id === id);
+    if (!entry) return;
+    entry.pinned = !entry.pinned;
+    notifyHistoryChanged();
+})
 
 app.whenReady().then(() => {
     storageFile = path.join(app.getPath("userData"), "history.json");
